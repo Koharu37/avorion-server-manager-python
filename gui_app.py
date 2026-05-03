@@ -4,6 +4,7 @@ import os
 import subprocess
 import threading
 import time
+import psutil
 from pathlib import Path
 from tkinter import filedialog
 
@@ -148,6 +149,16 @@ class App(ctk.CTk):
         
         self.btn_stop = ctk.CTkButton(btn_frame, text="■ 서버 중지", font=ctk.CTkFont(size=16, weight="bold"), height=45, fg_color="#e74c3c", hover_color="#c0392b", state="disabled", command=self.stop_server)
         self.btn_stop.pack(side="left", padx=15)
+
+        # 자원 사용량 카드
+        self.card_usage = ctk.CTkFrame(self.frame_dashboard, corner_radius=15)
+        self.card_usage.place(relx=0.5, rely=0.8, anchor="center")
+        
+        self.lbl_cpu = ctk.CTkLabel(self.card_usage, text="CPU: 0%", font=ctk.CTkFont(size=14, family="Consolas"))
+        self.lbl_cpu.pack(side="left", padx=20, pady=15)
+        
+        self.lbl_ram = ctk.CTkLabel(self.card_usage, text="RAM: 0MB", font=ctk.CTkFont(size=14, family="Consolas"))
+        self.lbl_ram.pack(side="left", padx=20, pady=15)
 
     # ----- SETTINGS -----
     def setup_settings(self):
@@ -592,10 +603,23 @@ class App(ctk.CTk):
             self.lbl_status.configure(text="🟢 ONLINE", text_color="#2ecc71")
             self.btn_start.configure(state="disabled")
             self.btn_stop.configure(state="normal")
+            
+            # 자원 정보 갱신
+            try:
+                proc = psutil.Process(self.server_process.pid)
+                with proc.oneshot():
+                    cpu = proc.cpu_percent()
+                    ram = proc.memory_info().rss / (1024 * 1024) # MB
+                    self.lbl_cpu.configure(text=f"CPU: {cpu:.1f}%")
+                    self.lbl_ram.configure(text=f"RAM: {ram:.0f} MB")
+            except:
+                pass
         else:
             self.lbl_status.configure(text="🔴 OFFLINE", text_color="#ff4444")
             self.btn_start.configure(state="normal")
             self.btn_stop.configure(state="disabled")
+            self.lbl_cpu.configure(text="CPU: 0%")
+            self.lbl_ram.configure(text="RAM: 0 MB")
             
         self.after(2000, self.update_status_loop)
 
