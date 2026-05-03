@@ -425,11 +425,24 @@ class App(ctk.CTk):
             import re
             content = ini_path.read_text(encoding="utf-8")
             
-            # 주요 설정 항목들만 필터링해서 UI 구성
-            important_keys = [
-                "difficulty", "collisionDamage", "infiniteResources", "creative", 
-                "maxPlayers", "isPublic", "isListed", "description", "password"
-            ]
+            # 주요 설정 항목들 및 UI 타입 정의
+            # Type: "entry", "switch", "difficulty"
+            setting_types = {
+                "difficulty": "difficulty",
+                "collisionDamage": "entry",
+                "infiniteResources": "switch",
+                "creative": "switch",
+                "maxPlayers": "entry",
+                "isPublic": "switch",
+                "isListed": "switch",
+                "description": "entry",
+                "password": "entry"
+            }
+            
+            diff_map = {
+                "-1": "Beginner", "0": "Easy", "1": "Normal", "2": "Veteran",
+                "3": "Difficult", "4": "Hard", "5": "Insane"
+            }
             
             row = 0
             for line in content.splitlines():
@@ -437,12 +450,25 @@ class App(ctk.CTk):
                     k, v = line.split("=", 1)
                     k, v = k.strip(), v.strip()
                     
-                    if k in important_keys:
-                        ctk.CTkLabel(self.card_game_rules, text=k).grid(row=row, column=0, sticky="w", padx=20, pady=5)
-                        ent = ctk.CTkEntry(self.card_game_rules)
-                        ent.insert(0, v)
-                        ent.grid(row=row, column=1, sticky="ew", padx=20, pady=5)
-                        self.game_entries[k] = ent
+                    if k in setting_types:
+                        ctk.CTkLabel(self.card_game_rules, text=k, font=ctk.CTkFont(weight="bold")).grid(row=row, column=0, sticky="w", padx=20, pady=5)
+                        
+                        ctype = setting_types[k]
+                        if ctype == "difficulty":
+                            opt = ctk.CTkOptionMenu(self.card_game_rules, values=list(diff_map.values()))
+                            opt.set(diff_map.get(v, "Normal"))
+                            opt.grid(row=row, column=1, sticky="ew", padx=20, pady=5)
+                            self.game_entries[k] = opt
+                        elif ctype == "switch":
+                            sw = ctk.CTkSwitch(self.card_game_rules, text="")
+                            if v.lower() == "true": sw.select()
+                            sw.grid(row=row, column=1, sticky="w", padx=20, pady=5)
+                            self.game_entries[k] = sw
+                        else:
+                            ent = ctk.CTkEntry(self.card_game_rules)
+                            ent.insert(0, v)
+                            ent.grid(row=row, column=1, sticky="ew", padx=20, pady=5)
+                            self.game_entries[k] = ent
                         row += 1
             
             self.lbl_ini_status = ctk.CTkLabel(self.card_game_rules, text=f"✅ {ini_path.name} 로드 완료", text_color="#2ecc71")
@@ -465,12 +491,24 @@ class App(ctk.CTk):
             lines = ini_path.read_text(encoding="utf-8").splitlines()
             new_lines = []
             
+            diff_reverse_map = {
+                "Beginner": "-1", "Easy": "0", "Normal": "1", "Veteran": "2",
+                "Difficult": "3", "Hard": "4", "Insane": "5"
+            }
+            
             for line in lines:
                 if "=" in line and not line.strip().startswith((";", "#", "[")):
                     k, v = line.split("=", 1)
                     k = k.strip()
                     if k in self.game_entries:
-                        new_val = self.game_entries[k].get().strip()
+                        widget = self.game_entries[k]
+                        if isinstance(widget, ctk.CTkOptionMenu):
+                            new_val = diff_reverse_map.get(widget.get(), "1")
+                        elif isinstance(widget, ctk.CTkSwitch):
+                            new_val = "true" if widget.get() else "false"
+                        else:
+                            new_val = widget.get().strip()
+                            
                         new_lines.append(f"{k}={new_val}")
                         continue
                 new_lines.append(line)

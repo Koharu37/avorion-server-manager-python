@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Version](https://img.shields.io/badge/version-1.2.0-orange.svg)
+![Version](https://img.shields.io/badge/version-1.2.1-orange.svg)
 
 아보리온(Avorion) 데디케이티드 서버를 쉽고 세련되게 관리할 수 있는 파이썬 기반의 데스크톱 매니저입니다.
 
