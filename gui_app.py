@@ -82,9 +82,12 @@ class App(ctk.CTk):
         
         self.btn_nav_console = ctk.CTkButton(self.sidebar_frame, text="💻 콘솔", fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"), anchor="w", command=lambda: self.select_frame("console"))
         self.btn_nav_console.grid(row=3, column=0, padx=20, pady=5, sticky="ew")
+
+        self.btn_nav_game_config = ctk.CTkButton(self.sidebar_frame, text="🎮 게임 규칙", fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"), anchor="w", command=lambda: self.select_frame("game_config"))
+        self.btn_nav_game_config.grid(row=4, column=0, padx=20, pady=5, sticky="ew")
         
         self.btn_nav_steamcmd = ctk.CTkButton(self.sidebar_frame, text="📥 SteamCMD", fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"), anchor="w", command=lambda: self.select_frame("steamcmd"))
-        self.btn_nav_steamcmd.grid(row=4, column=0, padx=20, pady=5, sticky="ew")
+        self.btn_nav_steamcmd.grid(row=5, column=0, padx=20, pady=5, sticky="ew")
         
         self.appearance_mode_label = ctk.CTkLabel(self.sidebar_frame, text="테마 설정:", anchor="w")
         self.appearance_mode_label.grid(row=6, column=0, padx=20, pady=(10, 0))
@@ -98,16 +101,19 @@ class App(ctk.CTk):
         self.frame_dashboard = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.frame_settings = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.frame_console = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        self.frame_game_config = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.frame_steamcmd = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         
         self.frames["dashboard"] = self.frame_dashboard
         self.frames["settings"] = self.frame_settings
         self.frames["console"] = self.frame_console
+        self.frames["game_config"] = self.frame_game_config
         self.frames["steamcmd"] = self.frame_steamcmd
         
         self.setup_dashboard()
         self.setup_settings()
         self.setup_console()
+        self.setup_game_config()
         self.setup_steamcmd()
         
         self.select_frame("dashboard")
@@ -122,6 +128,7 @@ class App(ctk.CTk):
             "dashboard": self.btn_nav_dashboard,
             "settings": self.btn_nav_settings,
             "console": self.btn_nav_console,
+            "game_config": self.btn_nav_game_config,
             "steamcmd": self.btn_nav_steamcmd
         }
         for k, btn in buttons.items():
@@ -362,6 +369,117 @@ class App(ctk.CTk):
         
         btn_send = ctk.CTkButton(input_frame, text="전송", width=80, command=self.send_command)
         btn_send.grid(row=0, column=1)
+
+    # ----- GAME CONFIG (server.ini Editor) -----
+    def setup_game_config(self):
+        self.frame_game_config.grid_columnconfigure(0, weight=1)
+        self.frame_game_config.grid_rowconfigure(0, weight=1)
+        
+        scroll = ctk.CTkScrollableFrame(self.frame_game_config, fg_color="transparent")
+        scroll.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
+        scroll.grid_columnconfigure(0, weight=1)
+        
+        self.game_entries = {}
+        
+        # 1. Title & Refresh Button
+        header = ctk.CTkFrame(scroll, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 20))
+        header.grid_columnconfigure(0, weight=1)
+        
+        ctk.CTkLabel(header, text="서버 규칙 설정 (server.ini)", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(header, text="🔄 새로고침", width=100, command=self.load_server_ini).grid(row=0, column=1)
+
+        # 2. Settings Card
+        self.card_game_rules = ctk.CTkFrame(scroll, corner_radius=10)
+        self.card_game_rules.grid(row=1, column=0, sticky="ew")
+        self.card_game_rules.grid_columnconfigure(1, weight=1)
+        
+        self.lbl_ini_status = ctk.CTkLabel(self.card_game_rules, text="server.ini를 불러오지 못했습니다.", text_color="gray")
+        self.lbl_ini_status.grid(row=0, column=0, columnspan=2, pady=20)
+
+        # 3. Save Button
+        self.btn_save_ini = ctk.CTkButton(scroll, text="💾 게임 규칙 저장", font=ctk.CTkFont(weight="bold"), height=40, fg_color="#3498db", command=self.save_server_ini)
+        self.btn_save_ini.grid(row=2, column=0, pady=20)
+
+    def load_server_ini(self):
+        # server.ini 경로 찾기
+        load_path = self.config.get("loadPath", "").strip()
+        if not load_path:
+            # 기본 경로 (%AppData%\Avorion\galaxies\...)
+            load_path = Path(os.environ["APPDATA"]) / "Avorion" / "galaxies" / self.config.get("galaxyName", "avorion_galaxy")
+        else:
+            load_path = Path(load_path)
+
+        ini_path = load_path / "server.ini"
+        
+        if not ini_path.exists():
+            self.lbl_ini_status.configure(text=f"파일을 찾을 수 없음: {ini_path}")
+            return
+
+        try:
+            # UI 초기화 (기존 위젯 제거)
+            for widget in self.card_game_rules.winfo_children():
+                widget.destroy()
+            self.game_entries = {}
+
+            import re
+            content = ini_path.read_text(encoding="utf-8")
+            
+            # 주요 설정 항목들만 필터링해서 UI 구성
+            important_keys = [
+                "difficulty", "collisionDamage", "infiniteResources", "creative", 
+                "maxPlayers", "isPublic", "isListed", "description", "password"
+            ]
+            
+            row = 0
+            for line in content.splitlines():
+                if "=" in line and not line.strip().startswith((";", "#", "[")):
+                    k, v = line.split("=", 1)
+                    k, v = k.strip(), v.strip()
+                    
+                    if k in important_keys:
+                        ctk.CTkLabel(self.card_game_rules, text=k).grid(row=row, column=0, sticky="w", padx=20, pady=5)
+                        ent = ctk.CTkEntry(self.card_game_rules)
+                        ent.insert(0, v)
+                        ent.grid(row=row, column=1, sticky="ew", padx=20, pady=5)
+                        self.game_entries[k] = ent
+                        row += 1
+            
+            self.lbl_ini_status = ctk.CTkLabel(self.card_game_rules, text=f"✅ {ini_path.name} 로드 완료", text_color="#2ecc71")
+            self.lbl_ini_status.grid(row=row, column=0, columnspan=2, pady=10)
+            
+        except Exception as e:
+            self.log_console(f"[오류] server.ini 로드 실패: {e}")
+
+    def save_server_ini(self):
+        load_path = self.config.get("loadPath", "").strip()
+        if not load_path:
+            load_path = Path(os.environ["APPDATA"]) / "Avorion" / "galaxies" / self.config.get("galaxyName", "avorion_galaxy")
+        else:
+            load_path = Path(load_path)
+            
+        ini_path = load_path / "server.ini"
+        if not ini_path.exists(): return
+
+        try:
+            lines = ini_path.read_text(encoding="utf-8").splitlines()
+            new_lines = []
+            
+            for line in lines:
+                if "=" in line and not line.strip().startswith((";", "#", "[")):
+                    k, v = line.split("=", 1)
+                    k = k.strip()
+                    if k in self.game_entries:
+                        new_val = self.game_entries[k].get().strip()
+                        new_lines.append(f"{k}={new_val}")
+                        continue
+                new_lines.append(line)
+                
+            ini_path.write_text("\n".join(new_lines), encoding="utf-8")
+            self.log_console(f"=== 게임 규칙 저장 완료: {ini_path} ===")
+            self.select_frame("console")
+        except Exception as e:
+            self.log_console(f"[오류] 게임 규칙 저장 실패: {e}")
 
     # ----- STEAMCMD -----
     def setup_steamcmd(self):
