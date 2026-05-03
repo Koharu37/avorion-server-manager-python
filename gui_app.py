@@ -30,13 +30,21 @@ DEFAULT_CONFIG = {
 }
 
 def load_config():
+    # 기본값으로 시작
     cfg = dict(DEFAULT_CONFIG)
     try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            loaded = json.load(f)
-            cfg.update(loaded)
-    except Exception:
-        pass
+        if CONFIG_PATH.exists():
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                # 기존에 저장된 값들로 덮어쓰되, 새로운 설정 항목(Key)은 유지함
+                for key, value in loaded.items():
+                    if key in cfg:
+                        cfg[key] = value
+                    else:
+                        # 코드에는 없지만 파일에만 있는 예전 설정값도 보존 (하위 호환성)
+                        cfg[key] = value
+    except Exception as e:
+        print(f"Config load error: {e}")
     return cfg
 
 def save_config(cfg):
