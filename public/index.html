@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Avorion Server Manager</title>
+  <meta name="description" content="Avorion 전용 서버 관리 도구 — 설치, 설정, 실행, 모니터링을 한 곳에서" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+  <!-- Ambient Background -->
+  <div class="bg-glow bg-glow--1"></div>
+  <div class="bg-glow bg-glow--2"></div>
+
+  <!-- Header -->
+  <header id="app-header">
+    <div class="header-left">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect x="2" y="2" width="28" height="28" rx="8" stroke="url(#logoGrad)" stroke-width="2.5"/>
+          <path d="M10 22 L16 8 L22 22" stroke="url(#logoGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="12" y1="18" x2="20" y2="18" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32">
+              <stop stop-color="#60a5fa"/>
+              <stop offset="1" stop-color="#a78bfa"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <h1>Avorion Server Manager</h1>
+      </div>
+      <div class="status-badge" id="status-badge">
+        <span class="status-dot"></span>
+        <span class="status-text">Offline</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="uptime-label" id="uptime-label"></span>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav id="main-nav">
+    <button class="nav-btn active" data-tab="dashboard" id="nav-dashboard">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      대시보드
+    </button>
+    <button class="nav-btn" data-tab="settings" id="nav-settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      서버 설정
+    </button>
+    <button class="nav-btn" data-tab="gameconfig" id="nav-gameconfig">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9z"/><path d="M11 3l1.5 6L22 9"/><path d="M2 9l8.5 0L13 3"/><path d="M2 9l10 13"/><path d="M22 9l-10 13"/></svg>
+      게임 설정
+    </button>
+    <button class="nav-btn" data-tab="console" id="nav-console">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      콘솔
+    </button>
+    <button class="nav-btn" data-tab="steamcmd" id="nav-steamcmd">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      SteamCMD
+    </button>
+  </nav>
+
+  <!-- Main Content -->
+  <main id="main-content">
+
+    <!-- ═══════ Dashboard ═══════ -->
+    <section class="tab-panel active" id="panel-dashboard">
+      <div class="dashboard-grid">
+        <!-- Server Control Card -->
+        <div class="card card--control">
+          <div class="card-header">
+            <h2>서버 제어</h2>
+          </div>
+          <div class="card-body control-body">
+            <div class="server-status-ring" id="status-ring">
+              <div class="ring-inner">
+                <span class="ring-icon" id="ring-icon">⏻</span>
+                <span class="ring-label" id="ring-label">OFFLINE</span>
+              </div>
+            </div>
+            <div class="control-buttons">
+              <button class="btn btn--start" id="btn-start" onclick="startServer()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                서버 시작
+              </button>
+              <button class="btn btn--stop" id="btn-stop" onclick="stopServer()" disabled>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                서버 중지
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Info Cards -->
+        <div class="card card--info">
+          <div class="card-header"><h2>서버 정보</h2></div>
+          <div class="card-body">
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">서버 이름</span>
+                <span class="info-value" id="info-name">-</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">은하 이름</span>
+                <span class="info-value" id="info-galaxy">-</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">포트</span>
+                <span class="info-value" id="info-port">-</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">최대 플레이어</span>
+                <span class="info-value" id="info-players">-</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">저장 간격</span>
+                <span class="info-value" id="info-save">-</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">PID</span>
+                <span class="info-value" id="info-pid">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Console -->
+        <div class="card card--console-preview">
+          <div class="card-header">
+            <h2>콘솔 미리보기</h2>
+            <button class="btn btn--ghost" onclick="switchTab('console')">전체 보기 →</button>
+          </div>
+          <div class="card-body">
+            <div class="console-mini" id="console-mini"></div>
+          </div>
+        </div>
+
+        <!-- Network Info -->
+        <div class="card card--network">
+          <div class="card-header"><h2>네트워크</h2></div>
+          <div class="card-body">
+            <div class="port-list">
+              <div class="port-item"><span class="port-num">27000</span><span class="port-proto">TCP/UDP</span><span class="port-desc">메인</span></div>
+              <div class="port-item"><span class="port-num">27003</span><span class="port-proto">UDP</span><span class="port-desc">Steam</span></div>
+              <div class="port-item"><span class="port-num">27020</span><span class="port-proto">UDP</span><span class="port-desc">쿼리</span></div>
+              <div class="port-item"><span class="port-num">27021</span><span class="port-proto">UDP</span><span class="port-desc">쿼리</span></div>
+            </div>
+            <p class="port-note">위 포트를 방화벽에서 허용하세요</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════ Server Settings ═══════ -->
+    <section class="tab-panel" id="panel-settings">
+      <div class="card card--full">
+        <div class="card-header">
+          <h2>서버 설정</h2>
+          <span class="card-sub">config.json — 서버 구동기 및 서버 기본 설정</span>
+        </div>
+        <div class="card-body">
+          <form id="settings-form" onsubmit="saveSettings(event)">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="set-steamcmdPath">SteamCMD 경로</label>
+                <input type="text" id="set-steamcmdPath" name="steamcmdPath" placeholder="C:\steamcmd" />
+              </div>
+              <div class="form-group">
+                <label for="set-serverPath">서버 설치 경로</label>
+                <input type="text" id="set-serverPath" name="serverPath" placeholder="C:\avorion-server" />
+              </div>
+              <div class="form-group">
+                <label for="set-serverName">서버 이름</label>
+                <input type="text" id="set-serverName" name="serverName" placeholder="My Avorion Server" />
+              </div>
+              <div class="form-group">
+                <label for="set-galaxyName">은하 이름</label>
+                <input type="text" id="set-galaxyName" name="galaxyName" placeholder="avorion_galaxy" />
+              </div>
+              <div class="form-group">
+                <label for="set-port">포트</label>
+                <input type="number" id="set-port" name="port" value="27000" />
+              </div>
+              <div class="form-group">
+                <label for="set-maxPlayers">최대 플레이어</label>
+                <input type="number" id="set-maxPlayers" name="maxPlayers" value="10" />
+              </div>
+              <div class="form-group">
+                <label for="set-saveInterval">저장 간격 (초)</label>
+                <input type="number" id="set-saveInterval" name="saveInterval" value="300" />
+              </div>
+              <div class="form-group">
+                <label for="set-adminSteamId">관리자 Steam ID (64bit)</label>
+                <input type="text" id="set-adminSteamId" name="adminSteamId" placeholder="76561198xxxxxxxxx" />
+              </div>
+              <div class="form-group">
+                <label for="set-seed">은하 시드 (비워두면 랜덤)</label>
+                <input type="text" id="set-seed" name="seed" placeholder="" />
+              </div>
+              <div class="form-group">
+                <label for="set-webPort">웹 관리자 포트</label>
+                <input type="number" id="set-webPort" name="webPort" value="3000" />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn--primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                저장
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════ Game Config ═══════ -->
+    <section class="tab-panel" id="panel-gameconfig">
+      <div class="card card--full">
+        <div class="card-header">
+          <h2>게임 설정</h2>
+          <span class="card-sub">server.ini — 서버 한 번 실행 후 생성됩니다</span>
+        </div>
+        <div class="card-body">
+          <div id="gameconfig-placeholder" class="placeholder-msg">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+            <p>server.ini 파일을 찾을 수 없습니다.<br/>서버를 한 번 이상 실행하면 자동으로 생성됩니다.</p>
+          </div>
+          <form id="gameconfig-form" style="display:none" onsubmit="saveGameConfig(event)">
+            <h3 class="form-section-title">게임 옵션</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="gc-Difficulty">난이도</label>
+                <select id="gc-Difficulty" name="Difficulty">
+                  <option value="-3">초보 (-3)</option>
+                  <option value="-2">쉬움 (-2)</option>
+                  <option value="-1">약간 쉬움 (-1)</option>
+                  <option value="0" selected>보통 (0)</option>
+                  <option value="1">약간 어려움 (1)</option>
+                  <option value="2">어려움 (2)</option>
+                  <option value="3">극한 (3)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="gc-HardcoreEnabled">하드코어 모드</label>
+                <select id="gc-HardcoreEnabled" name="HardcoreEnabled">
+                  <option value="false" selected>비활성화</option>
+                  <option value="true">활성화</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="gc-InfiniteResources">무한 자원</label>
+                <select id="gc-InfiniteResources" name="InfiniteResources">
+                  <option value="false" selected>비활성화</option>
+                  <option value="true">활성화</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="gc-CollisionDamage">충돌 데미지 (0.0~1.0)</label>
+                <input type="number" id="gc-CollisionDamage" name="CollisionDamage" value="1.0" step="0.1" min="0" max="1" />
+              </div>
+              <div class="form-group">
+                <label for="gc-PlayerToPlayerDamage">PvP 데미지</label>
+                <select id="gc-PlayerToPlayerDamage" name="PlayerToPlayerDamage">
+                  <option value="true" selected>활성화</option>
+                  <option value="false">비활성화</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="gc-LogoutInvincibility">로그아웃 무적</label>
+                <select id="gc-LogoutInvincibility" name="LogoutInvincibility">
+                  <option value="true" selected>활성화</option>
+                  <option value="false">비활성화</option>
+                </select>
+              </div>
+            </div>
+
+            <h3 class="form-section-title">네트워크</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="gc-isPublic">서버 공개</label>
+                <select id="gc-isPublic" name="isPublic">
+                  <option value="true" selected>공개</option>
+                  <option value="false">비공개</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="gc-isListed">서버 목록 표시</label>
+                <select id="gc-isListed" name="isListed">
+                  <option value="true" selected>표시</option>
+                  <option value="false">숨김</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="gc-password">비밀번호</label>
+                <input type="text" id="gc-password" name="password" placeholder="비밀번호 (비워두면 없음)" />
+              </div>
+              <div class="form-group form-group--wide">
+                <label for="gc-motd">MOTD (접속 메시지)</label>
+                <textarea id="gc-motd" name="motd" rows="3" placeholder="Welcome to my server!"></textarea>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn--primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                저장
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════ Console ═══════ -->
+    <section class="tab-panel" id="panel-console">
+      <div class="card card--full card--console">
+        <div class="card-header">
+          <h2>서버 콘솔</h2>
+          <div class="console-actions">
+            <button class="btn btn--ghost" onclick="clearConsole()" id="btn-clear-console">지우기</button>
+            <label class="toggle-label">
+              <input type="checkbox" id="auto-scroll" checked /> 자동 스크롤
+            </label>
+          </div>
+        </div>
+        <div class="card-body console-body">
+          <div class="console-output" id="console-output"></div>
+          <div class="console-input-row">
+            <span class="console-prompt">&gt;</span>
+            <input type="text" id="console-input" placeholder="서버 명령어 입력..." onkeydown="if(event.key==='Enter')sendCommand()" />
+            <button class="btn btn--sm" onclick="sendCommand()" id="btn-send-command">전송</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════ SteamCMD ═══════ -->
+    <section class="tab-panel" id="panel-steamcmd">
+      <div class="card card--full">
+        <div class="card-header">
+          <h2>SteamCMD — 서버 설치 / 업데이트</h2>
+        </div>
+        <div class="card-body steamcmd-body">
+          <div class="steamcmd-info">
+            <div class="info-block">
+              <h3>Avorion Dedicated Server</h3>
+              <p>App ID: <code>565060</code></p>
+              <p>SteamCMD를 사용하여 서버 파일을 자동으로 다운로드하고 업데이트합니다.</p>
+            </div>
+            <div class="info-block">
+              <h3>필요 조건</h3>
+              <ul>
+                <li>SteamCMD가 설치되어 있어야 합니다</li>
+                <li>설정 탭에서 SteamCMD 경로를 확인하세요</li>
+                <li>익명 로그인으로 다운로드됩니다</li>
+              </ul>
+            </div>
+          </div>
+          <div class="steamcmd-actions">
+            <button class="btn btn--primary btn--lg" id="btn-install" onclick="installServer()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              서버 설치 / 업데이트
+            </button>
+            <p class="install-note" id="install-status"></p>
+          </div>
+          <div class="steamcmd-help">
+            <h3>SteamCMD가 없으신가요?</h3>
+            <ol>
+              <li><a href="https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip" target="_blank">steamcmd.zip 다운로드</a></li>
+              <li>원하는 폴더에 압축 해제 (예: <code>C:\steamcmd</code>)</li>
+              <li><code>steamcmd.exe</code>를 한 번 실행하여 초기화</li>
+              <li>서버 설정 탭에서 경로를 지정</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
